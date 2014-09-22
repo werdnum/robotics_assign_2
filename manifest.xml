@@ -1,0 +1,16 @@
+<package>
+  <description brief="assign2">
+
+     assign2
+
+  </description>
+  <author>Comp3431 14s2 - Andrew James Garrettajga508@cse.unsw.edu.au</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/assign2</url>
+  <depend package="rospy"/>
+  <depend package="roscpp"/>
+
+</package>
+
+
