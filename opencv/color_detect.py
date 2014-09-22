@@ -3,7 +3,7 @@
 import cv2
 import numpy as np
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 colourMap = {
     'red' : [ [160, 128, 32], [180, 255, 255] ], #170
