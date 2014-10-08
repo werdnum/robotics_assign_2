@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     	client.send_goal(goal)
 
-    	if not client.wait_for_result(rospy.Duration(10.0)):
+    	if not client.wait_for_result(rospy.Duration(5.0)):
         	client.cancel_all_goals()
         	print('        the cartesian action timed-out')
 
