@@ -1,16 +1,16 @@
 #! /usr/bin/env python
 
 import os
+import pickup_block
 
 if __name__ == '__main__':
-	os.system('python pickup_block.py 0 0')
-	os.system('python pickup_block.py 1 1')
-	os.system('python pickup_block.py 2 2')
-	os.system('python pickup_block.py 3 3')
-	os.system('python pickup_block.py 4 4')
-	os.system('python pickup_block.py 5 5')
-	os.system('python pickup_block.py 6 6')
-	os.system('python pickup_block.py 7 7')
-	os.system('python pickup_block.py 8 8')
-
+	pickup_block.main(2,0)
+	pickup_block.main(0,1)
+	pickup_block.main(4,2)
+	pickup_block.main(8,3)
+	pickup_block.main(5,4)
+	pickup_block.main(1,5)
+	pickup_block.main(6,6)
+	pickup_block.main(7,7)
+	pickup_block.main(9,8)
 

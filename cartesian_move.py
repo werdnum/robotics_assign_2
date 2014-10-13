@@ -11,9 +11,9 @@ import jaco_msgs.msg
 import std_msgs.msg
 import geometry_msgs.msg
 
-if __name__ == '__main__':
+def main (pos1, pos2, pos3, orient1, orient2, orient3, orient4):
     try:
-        rospy.init_node('jaco_cartesian_move')
+        rospy.init_node('jaco_cartesian_move', anonymous=True)
 
 	client = actionlib.SimpleActionClient('/jaco_arm_driver/arm_pose/arm_pose', jaco_msgs.msg.ArmPoseAction)
     	client.wait_for_server()
@@ -21,9 +21,9 @@ if __name__ == '__main__':
     	goal = jaco_msgs.msg.ArmPoseGoal()
     	goal.pose.header = std_msgs.msg.Header(frame_id=('jaco_api_origin'))
     	goal.pose.pose.position = geometry_msgs.msg.Point(
-        	float(sys.argv[1]), float(sys.argv[2]), float(sys.argv[3]))
+        	float(pos1), float(pos2), float(pos3))
     	goal.pose.pose.orientation = geometry_msgs.msg.Quaternion(
-        	float(sys.argv[4]), float(sys.argv[5]), float(sys.argv[6]), float(sys.argv[7]))
+        	float(orient1), float(orient2), float(orient3), float(orient4))
 
     	client.send_goal(goal)
 
@@ -33,3 +33,6 @@ if __name__ == '__main__':
 
     except rospy.ROSInterruptException:
         print "program interrupted before completion"
+
+if __name__ == '__main__':
+	main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
