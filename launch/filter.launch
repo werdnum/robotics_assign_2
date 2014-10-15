@@ -1,0 +1,6 @@
+<launch>
+    <include file="$(find openni2_launch)/launch/openni2.launch" />
+    <node pkg="assign2" type="colour_filter.py" name="colour_filter" />
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find assign2)/vision.rviz" />
+</launch>
+

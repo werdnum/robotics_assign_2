@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package>
+  <name>assign2</name>
+  <version>0.0.1</version>
+  <description>Robotics Assignment 2</description>
+
+  <maintainer email="josefvisser90@hotmail.com">Josef Visser</maintainer>
+  <maintainer email="bwright.au@gmail.com">Ben Wright</maintainer>
+  <maintainer email="andrew@andrewjgarrett.com">Andrew Garrett</maintainer>
+
+  <license>TODO</license>
+
+  <!-- The *_depend tags are used to specify dependencies -->
+  <!-- Dependencies can be catkin packages or system dependencies -->
+  <!-- Examples: -->
+  <!-- Use build_depend for packages you need at compile time: -->
+  <!--   <build_depend>message_generation</build_depend> -->
+  <!-- Use buildtool_depend for build tool packages: -->
+  <!--   <buildtool_depend>catkin</buildtool_depend> -->
+  <!-- Use run_depend for packages you need at runtime: -->
+  <!--   <run_depend>message_runtime</run_depend> -->
+  <!-- Use test_depend for packages you need only for testing: -->
+  <!--   <test_depend>gtest</test_depend> -->
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>rospy</build_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>rospy</run_depend>
+</package>

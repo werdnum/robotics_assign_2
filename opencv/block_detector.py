@@ -25,8 +25,9 @@ HIERARCHY_PARENT = 3
 class block_detector:
     def __init__(self):
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber( '/camera/rgb/image_rect_color', Image, self.imageCallback, queue_size=1 )
+        self.image_sub = rospy.Subscriber( '/image', Image, self.imageCallback, queue_size=1 )
         self.image_pub = rospy.Publisher( 'annotated_image', Image, queue_size=1 )
+        self.block_pub = rospy.Publisher( 'blocks', Image, queue_size=1 )
 
     def imageCallback(self,data):
         try:
@@ -50,22 +51,40 @@ class block_detector:
         res = cv2.bitwise_or( cv_image, np.ones( cv_image.shape, np.uint8 ), mask=coloursOfInterestMask )
             
         for cnt in drawContours:
-            cv2.drawContours( res, drawContours, -1, (0,255,255), 2 )
-            
+            length = len(cnt)
+            colour = (128,128,128)
+            if length == 3:
+                colour = (255, 0, 0)
+            elif length == 4:
+                colour = (0, 255, 0)
+            elif length == 5:
+                colour = (0, 0, 255)
+            elif length > 5:
+                colour = (255, 255, 255)
+            cv2.drawContours( res, [cnt], -1, colour, 1 )
+
         resultImage = self.bridge.cv2_to_imgmsg( res, encoding="passthrough" )
-        
+
         self.image_pub.publish( resultImage )
 
     def processColour( self, hsvImage, colourName, colourBounds ):
         lowerBound = np.array( colourBounds[0] )
         upperBound = np.array( colourBounds[1] )
         colourMask = cv2.inRange( hsvImage, lowerBound, upperBound )
+        kernel = np.ones((2,2),np.uint8)
+        colourMask = cv2.morphologyEx(colourMask, cv2.MORPH_CLOSE, kernel)
         colourContours, hierarchy = cv2.findContours( colourMask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE )
         drawContours = []
+        otherPoints = np.float32([[0,0], [100,0], [100,100], [0,100]])
 
         for index in range( 0, len( colourContours ) ):
             if self.isBlock( colourContours, hierarchy, index ):
-                drawContours.append( colourContours[index] )
+                contour = colourContours[index]
+                approxSquare = self.getApproxSquare(contour)
+                transform = cv2.getAffineTransform(approxSquare, otherPoints)
+                cutImage = cv2.warpAffine(hsvImage, transform, (100, 100) )
+                pubImage = self.bridge.cv2_to_imgmsg(cutImage, encoding="passthrough")
+                self.block_pub.publish(pubImage)
 
         return (colourMask, drawContours)
 
@@ -74,6 +93,8 @@ class block_detector:
         ## Simple screen: throw out non-squares
         if not self.isSquare( contour ):
             return False
+        else:
+            return True
 
         childIndex = hierarchy[0][index][HIERARCHY_FIRST_CHILD]
         while ( childIndex >= 0 ):
@@ -87,9 +108,16 @@ class block_detector:
         return False
 
     def isSquare( self, contour ):
-        approxShape = cv2.approxPolyDP( contour, 0.01 * cv2.arcLength( contour, True), True )
-        area = cv2.contourArea( approxShape )
-        return ( ( len( approxShape ) == 4 ) and ( area > 100 ) and ( cv2.isContourConvex( approxShape ) ) )
+        approxShape = self.getApproxSquare(contour)
+        rectArea = cv2.contourArea( approxShape )
+        actualArea = cv2.contourArea( contour )
+        return (len( approxShape ) == 4) and \
+            (actualArea > 100)
+
+
+    def getApproxSquare( self, contour ):
+        convexHull = cv2.convexHull(contour)
+        return cv2.approxPolyDP( convexHull, 0.125 * cv2.arcLength( contour, True), True )
 
 
 def main(args):
