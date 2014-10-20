@@ -45,12 +45,19 @@ class colour_filter:
         else:
             colourMask = cv2.inRange( hsvImage, self.lowerBound, self.upperBound )
 
+        kernel = np.ones((2,2),np.uint8)
+        # colourMask = cv2.morphologyEx(colourMask, cv2.MORPH_CLOSE, kernel)
+
+        resultImage = self.bridge.cv2_to_imgmsg( colourMask, encoding="passthrough" )
+        self.image_pub.publish(resultImage)
+        return
+
         # Bitwise-AND mask and original image
         res = cv2.bitwise_or( cv_image, np.ones( cv_image.shape, np.uint8 ), mask=colourMask )
             
         resultImage = self.bridge.cv2_to_imgmsg( res, encoding="passthrough" )
         
-        self.image_pub.publish( resultImage )
+        # self.image_pub.publish( resultImage )
 
 
 def main(args):
