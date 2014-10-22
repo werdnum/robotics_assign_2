@@ -8,7 +8,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 colourMap = {
-    'red' : [ [170, 128, 0], [180, 255, 255] ],
+    'red' : [ [170, 32, 0], [10, 255, 255] ],
     'orange' : [ [0, 160, 64], [15, 255, 255] ],
     'yellow' : [ [25, 128, 0], [30, 255, 255] ],
     'green' : [ [35, 64, 0], [45, 255, 255] ],
@@ -59,16 +59,20 @@ class block_detector:
         boundingBox = self.getWorkingArea(cv_image)
 
         if not (None in boundingBox.values()):
-            ordering = ['yellow', 'green', 'blue', 'red']
+            ordering = ['blue', 'red', 'yellow', 'green']
             transformPoints = [boundingBox[colour] for colour in ordering]
             transformPoints = np.array(transformPoints, np.float32)
-            hsvImage = self.extractPoints(hsvImage, transformPoints, 1000, 600)
+            # for i in range(0,3):
+            #     cv2.line(cv_image, (transformPoints[i][0], transformPoints[i][1]), \
+            #         (transformPoints[i+1][0], transformPoints[i+1][1]), (255,255,0), 2)
             cv_image = self.extractPoints(cv_image, transformPoints, 1000, 600)
+            hsvImage = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
         else:
             return
 
         coloursOfInterestMask = np.zeros( (hsvImage.shape[0], hsvImage.shape[1]), np.uint8 )
 
+        self.drawContours = []
         ## Create a mask that matches any of the colours of interest
         for colourName, colourBounds in colourMap.iteritems():
             colourMask = self.processColour( hsvImage, colourName, colourBounds )
@@ -76,9 +80,11 @@ class block_detector:
 
         # Bitwise-AND mask and original image
         res = cv_image
-        res = cv2.bitwise_or( cv_image, np.ones( cv_image.shape, np.uint8 ), mask=coloursOfInterestMask )
+        # res = cv2.bitwise_or( cv_image, np.ones( cv_image.shape, np.uint8 ), mask=coloursOfInterestMask )
+         
+        cv2.drawContours(res, self.drawContours, -1, (0, 0, 0))
 
-        resultImage = self.bridge.cv2_to_imgmsg( res, encoding="passthrough" )
+        resultImage = self.bridge.cv2_to_imgmsg( res, encoding="bgr8" )
 
         self.image_pub.publish( resultImage )
 
@@ -95,19 +101,20 @@ class block_detector:
         # so if the detection is flaky then we have a starting point
         output = self.working_area
         for index in range(0, len(blackContours)):
-            approx = self.getApproxSquare(blackContours[index])
-            area = cv2.contourArea(approx)
-            if area > 800:
+            actualContour = blackContours[index]
+            approx = self.getApproxSquare(actualContour)
+            approxArea = cv2.contourArea(approx)
+            actualArea = cv2.contourArea(actualContour)
+            if approxArea < 1 or (actualArea / approxArea) < 0.2:
                 continue
-            elif area < 20:
+            if actualArea > 800:
+                continue
+            elif actualArea < 20:
                 continue
             elif len(approx) != 4:
                 continue
             else:
-                moments = cv2.moments(approx)
-                center_x = int(moments['m10'] / moments['m00'])
-                center_y = int(moments['m01'] / moments['m00'])
-                center = (center_x, center_y)
+                center = self.getContourCentre(approx)
 
                 squareImage = self.extractBlock(image, approx, 40)
                 colour = cv2.mean(squareImage, mask=centerMask)
@@ -137,20 +144,38 @@ class block_detector:
             return colourName
 
     def processColour( self, hsvImage, colourName, colourBounds ):
-        lowerBound = np.array( colourBounds[0] )
-        upperBound = np.array( colourBounds[1] )
-        colourMask = cv2.inRange( hsvImage, lowerBound, upperBound )
+        colourMask = self.getColourMask(hsvImage, colourBounds[0], colourBounds[1])
         kernel = np.ones((2,2),np.uint8)
-        colourMask = cv2.morphologyEx(colourMask, cv2.MORPH_CLOSE, kernel)
+        colourMask = cv2.morphologyEx(colourMask, cv2.MORPH_DILATE, kernel)
         colourContours, hierarchy = cv2.findContours( colourMask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE )
 
         for index in range( 0, len( colourContours ) ):
+            self.drawContours.append(colourContours[index])
             if self.isBlock( colourContours, hierarchy, index ):
                 contour = colourContours[index]
                 cutImage = self.extractBlock(hsvImage, contour)
-                pubImage = self.bridge.cv2_to_imgmsg(cutImage, encoding="passthrough")
+                cutImage = cv2.cvtColor(cutImage, cv2.COLOR_HSV2BGR)
+                pubImage = self.bridge.cv2_to_imgmsg(cutImage, encoding="bgr8")
                 self.block_pub.publish(pubImage)
                 self.saveImage(cutImage, colourName)
+
+        return colourMask
+
+    def getColourMask(self, hsvImage, lowerBound, upperBound):
+        lowerBound = np.array(lowerBound)
+        upperBound = np.array(upperBound)
+        if upperBound[0] < lowerBound[0]:
+            lowerBound1 = np.array([lowerBound[0], lowerBound[1], lowerBound[2]])
+            lowerBound2 = np.array([0, lowerBound[1], lowerBound[2]])
+            upperBound1 = np.array([180, upperBound[1], upperBound[2]])
+            upperBound2 = np.array([upperBound[0], upperBound[1], upperBound[2]])
+
+            mask1 = cv2.inRange(hsvImage, lowerBound1, upperBound1)
+            mask2 = cv2.inRange(hsvImage, lowerBound2, upperBound2)
+
+            colourMask = cv2.bitwise_or(mask1, mask2)
+        else:
+            colourMask = cv2.inRange( hsvImage, lowerBound, upperBound )
 
         return colourMask
 
@@ -158,10 +183,27 @@ class block_detector:
         if height == None:
             height = width
         approxSquare = self.getApproxSquare(contour)
+        if len(approxSquare) != 4:
+            print "Not a square; has %d points" % len(approxSquare)
+            return
         srcPoints = np.empty((4,2), np.float32)
+        centre = self.getContourCentre(approxSquare)
         for index in range(0, 4):
-            srcPoints[index][0] = approxSquare[index][0][0]
-            srcPoints[index][1] = approxSquare[index][0][1]
+            pointX = approxSquare[index][0][0]
+            pointY = approxSquare[index][0][1]
+            point = (pointX, pointY)
+            isLeft = pointX < centre[0]
+            isTop = pointY < centre[1]
+
+            if isLeft and isTop:
+                srcPoints[0] = point
+            elif isTop and not isLeft:
+                srcPoints[1] = point
+            elif not isLeft and not isTop:
+                srcPoints[2] = point
+            elif isLeft and not isTop:
+                srcPoints[3] = point
+
         return self.extractPoints(image, srcPoints, width, height)
 
     def extractPoints(self, image, points, width, height):
@@ -182,34 +224,23 @@ class block_detector:
 
     def isBlock( self, contours, hierarchy, index ):
         contour = contours[index]
-        ## Simple screen: throw out non-squares
-        if not self.isSquare( contour ):
-            return False
-        else:
-            return True
-
-        childIndex = hierarchy[0][index][HIERARCHY_FIRST_CHILD]
-        while ( childIndex >= 0 ):
-            child = contours[childIndex]
-            if ( self.isSquare( child ) ):
-                childArea = cv2.contourArea( child )
-                return True
-            
-            childIndex = hierarchy[0][childIndex][HIERARCHY_NEXT]
-        
-        return False
-
-    def isSquare( self, contour ):
-        approxShape = self.getApproxSquare(contour)
-        rectArea = cv2.contourArea( approxShape )
-        actualArea = cv2.contourArea( contour )
-        return (len( approxShape ) == 4) and \
-            (actualArea > 100)
+        area = cv2.contourArea( contour )
+        return (area > 7000) and (area < 11000)
 
 
     def getApproxSquare( self, contour ):
-        convexHull = cv2.convexHull(contour)
-        return cv2.approxPolyDP( convexHull, 0.125 * cv2.arcLength( contour, True), True )
+        rect = cv2.minAreaRect(contour)
+        points = cv2.cv.BoxPoints(rect)
+        output = np.zeros(np.array([4,1,2]), np.float32)
+        for i in range(0,4):
+            output[i][0] = points[i]
+        return output
+
+    def getContourCentre(self, contour):
+        moments = cv2.moments(contour)
+        center_x = int(moments['m10'] / moments['m00'])
+        center_y = int(moments['m01'] / moments['m00'])
+        return (center_x, center_y)
 
 
 def main(args):
