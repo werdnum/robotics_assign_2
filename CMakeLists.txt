@@ -49,6 +49,7 @@ set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 add_message_files(
   FILES
     HsvFilter.msg
+    Block.msg
 #   Message1.msg
 #   Message2.msg
 )

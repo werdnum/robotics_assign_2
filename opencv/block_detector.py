@@ -5,6 +5,7 @@ import rospy
 import cv2
 import numpy as np
 from sensor_msgs.msg import Image
+from assign2.msg import Block
 from cv_bridge import CvBridge, CvBridgeError
 
 colourMap = {
@@ -16,15 +17,14 @@ colourMap = {
     'purple' : [ [130, 64, 0], [160, 255, 255] ],
 }
 
-workingMap = {
-    'red' : [ [170, 128, 0], [180, 255, 255] ],
-    'blue' : [ [90, 100, 0], [120, 200, 255] ],
-    'green' : [ [60, 64, 0], [75, 255, 255] ],
-    'yellow' : [ [25, 128, 0], [30, 255, 255] ],
+letterMap = {
+    'green' : 'A',
+    'blue' : 'B',
+    'orange' : 'C',
+    'purple' : 'D',
+    'yellow' : 'E',
+    'red' : 'F',
 }
-
-blackLowerBound = np.array([0, 0, 0])
-blackUpperBound = np.array([180, 255, 96])
 
 ## Hierarchy array constants
 HIERARCHY_NEXT = 0
@@ -37,14 +37,15 @@ class block_detector:
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber( 'image', Image, self.imageCallback, queue_size=1 )
         self.image_pub = rospy.Publisher( 'annotated_image', Image, queue_size=1 )
-        self.block_pub = rospy.Publisher( 'blocks', Image, queue_size=1 )
-        self.image_counter = 0
-        if filename != None:
-            self.filename = filename
-            print "Writing files to ", filename
-        else:
-            self.filename = None
-        self.working_area = {'red' : None, 'yellow' : None, 'green' : None, 'blue' : None}
+        self.block_pub = rospy.Publisher( 'blocks', Block, queue_size=26 )
+        self.block_img_pub = rospy.Publisher( 'block_images', Image, queue_size=26 )
+
+    def initKNN(self):
+        print "Initialising letter classifier"
+        self.kNN = cv2.KNearest()
+        with np.load('knn.npz') as data:
+            self.kNN.train(data['images'], data['letters'])
+        print "Initialised letter classifier."
 
     def imageCallback(self,data):
         try:
@@ -54,21 +55,6 @@ class block_detector:
 
         # Convert BGR to HSV
         hsvImage = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
-
-        ## Find corners
-        boundingBox = self.getWorkingArea(cv_image)
-
-        if not (None in boundingBox.values()):
-            ordering = ['blue', 'red', 'yellow', 'green']
-            transformPoints = [boundingBox[colour] for colour in ordering]
-            transformPoints = np.array(transformPoints, np.float32)
-            # for i in range(0,3):
-            #     cv2.line(cv_image, (transformPoints[i][0], transformPoints[i][1]), \
-            #         (transformPoints[i+1][0], transformPoints[i+1][1]), (255,255,0), 2)
-            cv_image = self.extractPoints(cv_image, transformPoints, 1000, 600)
-            hsvImage = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
-        else:
-            return
 
         coloursOfInterestMask = np.zeros( (hsvImage.shape[0], hsvImage.shape[1]), np.uint8 )
 
@@ -88,61 +74,6 @@ class block_detector:
 
         self.image_pub.publish( resultImage )
 
-    def getWorkingArea(self, image):
-        # Find black boxes
-        blackMaskedImage = cv2.inRange(image, blackLowerBound, blackUpperBound)
-        blackContours, hierarchy = cv2.findContours(blackMaskedImage, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Set up mask for finding colour of a box
-        centerMask = np.zeros(np.array([40,40]), np.uint8)
-        centerMask[15:25, 15:25] = 255
-
-        # Use the last stored working area as a starting point,
-        # so if the detection is flaky then we have a starting point
-        output = self.working_area
-        for index in range(0, len(blackContours)):
-            actualContour = blackContours[index]
-            approx = self.getApproxSquare(actualContour)
-            approxArea = cv2.contourArea(approx)
-            actualArea = cv2.contourArea(actualContour)
-            if approxArea < 1 or (actualArea / approxArea) < 0.2:
-                continue
-            if actualArea > 800:
-                continue
-            elif actualArea < 20:
-                continue
-            elif len(approx) != 4:
-                continue
-            else:
-                center = self.getContourCentre(approx)
-
-                squareImage = self.extractBlock(image, approx, 40)
-                colour = cv2.mean(squareImage, mask=centerMask)
-                colourName = self.classifyColour(colour)
-
-                if colourName != None:
-                    output[colourName] = center
-        return output
-
-    def classifyColour(self, colour):
-        onePixelImage = np.array([[colour]], np.uint8)
-        onePixelImage = cv2.cvtColor(onePixelImage, cv2.COLOR_BGR2HSV)
-        hsvColor = onePixelImage[0,0]
-        for colourName, colourBounds in workingMap.iteritems():
-            match = True
-            for itemIndex in range(0,len(colourBounds)):
-                lowerBound = colourBounds[0]
-                upperBound = colourBounds[1]
-                if not (lowerBound[itemIndex] <= hsvColor[itemIndex] <= upperBound[itemIndex]):
-                    match = False
-                    break
-            if match:
-                break
-        if not match:
-            return None
-        else:
-            return colourName
-
     def processColour( self, hsvImage, colourName, colourBounds ):
         colourMask = self.getColourMask(hsvImage, colourBounds[0], colourBounds[1])
         kernel = np.ones((2,2),np.uint8)
@@ -155,9 +86,15 @@ class block_detector:
                 contour = colourContours[index]
                 cutImage = self.extractBlock(hsvImage, contour)
                 cutImage = cv2.cvtColor(cutImage, cv2.COLOR_HSV2BGR)
-                pubImage = self.bridge.cv2_to_imgmsg(cutImage, encoding="bgr8")
-                self.block_pub.publish(pubImage)
-                self.saveImage(cutImage, colourName)
+                imgMsg = self.bridge.cv2_to_imgmsg(cutImage, encoding="bgr8")
+                self.block_img_pub.publish(imgMsg)
+                centre = self.getContourCentre(contour)
+                blockMsg = Block()
+                blockMsg.posX = float(centre[0]) / float(hsvImage.shape[1])
+                blockMsg.posY = float(centre[1]) / float(hsvImage.shape[0])
+                blockMsg.colour = colourName
+                blockMsg.letter = self.getBlockLetter(cutImage)
+                self.block_pub.publish(blockMsg)
 
         return colourMask
 
@@ -211,22 +148,16 @@ class block_detector:
         transform = cv2.getPerspectiveTransform(points, dstPoints)
         return cv2.warpPerspective(image, transform, (width, height))
 
-    def saveImage(self, image, colourName):
-        if (self.filename == None):
-            return
-        bgrImage = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
-        self.image_counter = self.image_counter + 1
-        filename = self.filename + "/" + \
-            colourName + "/" + \
-            str(self.image_counter) + ".png"
-        print "Writing ", filename
-        cv2.imwrite(filename, bgrImage)
-
     def isBlock( self, contours, hierarchy, index ):
         contour = contours[index]
         area = cv2.contourArea( contour )
         return (area > 7000) and (area < 11000)
 
+    def getBlockLetter(self, blockImage):
+        blockImage = cv2.cvtColor(blockImage, cv2.COLOR_BGR2GRAY)
+        row = np.reshape(blockImage, -1)
+        ret,result,neighbours,dist = self.kNN.find_nearest(testImages,k=3)
+        return chr(result[0])
 
     def getApproxSquare( self, contour ):
         rect = cv2.minAreaRect(contour)
@@ -244,13 +175,8 @@ class block_detector:
 
 
 def main(args):
-    print args[1]
-    if len(args) > 1 and not args[1].startswith('__name'):
-        filename = args[1]
-    else:
-        filename = None
     rospy.init_node('block_detector')
-    block_detector(filename)
+    block_detector()
     rospy.loginfo( "Block detector initialised" )
     rospy.spin()
 
