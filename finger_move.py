@@ -30,6 +30,8 @@ def handle_finger_move(req):
     	if not client.wait_for_result(rospy.Duration(5.0)):
         	print('        the gripper action timed-out')
 
+	return True
+
     except rospy.ROSInterruptException:
         print "program interrupted before completion"
 

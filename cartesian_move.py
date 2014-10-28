@@ -33,6 +33,8 @@ def handle_cartesian_move (req):
         	client.cancel_all_goals()
         	print('        the cartesian action timed-out')
 
+	return True
+
     except rospy.ROSInterruptException:
         print "program interrupted before completion"
 

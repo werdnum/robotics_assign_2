@@ -1,2 +1,4 @@
 float64 pos1
 int32 pos2
+---
+bool ret

@@ -19,34 +19,60 @@ def handle_pickup_block(req):
 	rospy.wait_for_service('cartesian_move')
 	try:
 		cartesian_move = rospy.ServiceProxy('cartesian_move', Cartesian)
+		cartesian_move(float(xpos_pick), -0.6, 0.1, 0.707, 0.707, 0.0, 0.0)
 	except rospy.ServiceException, e:
         	print "Service call failed: %s"%e
-	cartesian_move(float(xpos_pick), float(-0.6), float(0.1), float(0.707), float(0.707), float(0), float(0))
 	#os.system('python finger_move.py 1.25 1.25 1.25') # Open fingers
 	rospy.wait_for_service('finger_move')
 	try:
 		finger_move = rospy.ServiceProxy('finger_move', Finger)
+		finger_move(1.25, 1.25, 1.25)
 	except rospy.ServiceException, e:
         	print "Service call failed: %s"%e
-	finger_move(1.25, 1.25, 1.25)
-	cartesian_move(float(xpos_pick), float(-0.6), float(0.03), float(0.707), float(0.707), float(0), float(0))	
+	rospy.wait_for_service('cartesian_move')
+	try:
+		cartesian_move = rospy.ServiceProxy('cartesian_move', Cartesian)
+		cartesian_move(float(xpos_pick), -0.6, 0.03, 0.707, 0.707, 0.0, 0.0)
+	except rospy.ServiceException, e:
+        	print "Service call failed: %s"%e
 	#os.system('python cartesian_move.py ' + xpos_pick + ' -0.6 0.03 0.707 0.707 0 0')
-	finger_move(36, 36, 1.25)
+	rospy.wait_for_service('finger_move')
+	try:
+		finger_move = rospy.ServiceProxy('finger_move', Finger)
+		finger_move(36, 36, 1.25)
+	except rospy.ServiceException, e:
+        	print "Service call failed: %s"%e	
 	#os.system('python finger_move.py 36 36 1.25') # Grab block
-	cartesian_move(float(xpos_pick), float(-0.6), float(0.1), float(0.707), float(0.707), float(0), float(0))
 	#os.system('python cartesian_move.py ' + xpos_pick + ' -0.6 0.1 0.707 0.707 0 0')
 	xpos_place = 0.26 - req.pos2 * 0.06
 	zpos_place = 0 - req.pos2 * 0.0001
 	#xpos_place = str(xpos_place)
 	#zpos_place = str(zpos_place)
-	cartesian_move(float(xpos_place), float(-0.46), float(0.1), float(0.707), float(0.707), float(0), float(0))
+	rospy.wait_for_service('cartesian_move')
+	try:
+		cartesian_move = rospy.ServiceProxy('cartesian_move', Cartesian)
+		cartesian_move(float(xpos_pick), -0.6, 0.1, 0.707, 0.707, 0.0, 0.0)
+		cartesian_move(float(xpos_place), -0.46, 0.1, 0.707, 0.707, 0.0, 0.0)
+		cartesian_move(float(xpos_place), -0.46, float(zpos_place), 0.707, 0.707, 0.0, 0.0)
+	except rospy.ServiceException, e:
+        	print "Service call failed: %s"%e
 	#os.system('python cartesian_move.py ' + xpos_place + ' -0.46 0.1 0.707 0.707 0 0') # Move to new pos
-	cartesian_move(float(xpos_place), float(-0.46), float(zpos_place), float(0.707), float(0.707), float(0), float(0))
 	#os.system('python cartesian_move.py ' + xpos_place + ' -0.46 ' + zpos_place + ' 0.707 0.707 0 0')
-	finger_move(1.25, 1.25, 1.25)
+	rospy.wait_for_service('finger_move')
+	try:
+		finger_move = rospy.ServiceProxy('finger_move', Finger)
+		finger_move(1.25, 1.25, 1.25)
+	except rospy.ServiceException, e:
+        	print "Service call failed: %s"%e
 	#os.system('python finger_move.py 1.25 1.25 1.25') # Open fingers
-	cartesian_move(float(xpos_place), float(-0.46), float(0.1), float(0.707), float(0.707), float(0), float(0))
+	rospy.wait_for_service('cartesian_move')
+	try:
+		cartesian_move = rospy.ServiceProxy('cartesian_move', Cartesian)
+		cartesian_move(float(xpos_place), -0.46, 0.1, 0.707, 0.707, 0.0, 0.0)
+	except rospy.ServiceException, e:
+        	print "Service call failed: %s"%e
 	#os.system('python cartesian_move.py ' + xpos_place + ' -0.46 0.1 0.707 0.707 0 0')
+	return True
 
 def pickup_block_server():
 	rospy.init_node('jaco_pickup_block')
