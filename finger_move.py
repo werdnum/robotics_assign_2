@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
 import roslib; roslib.load_manifest('jaco_demo')
 import rospy
@@ -8,9 +8,11 @@ import sys
 import actionlib
 import jaco_msgs.msg
 
-def main(pos1, pos2, pos3):
+from assign2.srv import Finger
+
+def handle_finger_move(req):
     try:
-       	rospy.init_node('jaco_finger_move', anonymous=True)
+       	#rospy.init_node('jaco_finger_move')
 
        	action_address = '/jaco_arm_driver/fingers/finger_positions'
     	client = actionlib.SimpleActionClient(action_address,
@@ -19,9 +21,9 @@ def main(pos1, pos2, pos3):
     	client.wait_for_server()
 
     	goal = jaco_msgs.msg.SetFingersPositionGoal()
-    	goal.fingers.finger1 = float(pos1)
-    	goal.fingers.finger2 = float(pos2)
-	goal.fingers.finger3 = float(pos3)
+    	goal.fingers.finger1 = req.pos1
+    	goal.fingers.finger2 = req.pos2
+	goal.fingers.finger3 = req.pos3
 
     	client.send_goal(goal)
 
@@ -31,5 +33,13 @@ def main(pos1, pos2, pos3):
     except rospy.ROSInterruptException:
         print "program interrupted before completion"
 
+def finger_move_server():
+	rospy.init_node('jaco_finger_move')
+	s = rospy.Service('finger_move', Finger, handle_finger_move)
+	rospy.spin();
+
 if __name__ == '__main__':
-	main(sys.argv[1], sys.argv[2], sys.argv[3])
+	finger_move_server()
+
+#if __name__ == '__main__':
+#	main(sys.argv[1], sys.argv[2], sys.argv[3])

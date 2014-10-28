@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
 import roslib; roslib.load_manifest('jaco_demo')
 import rospy
@@ -11,9 +11,11 @@ import jaco_msgs.msg
 import std_msgs.msg
 import geometry_msgs.msg
 
-def main (pos1, pos2, pos3, orient1, orient2, orient3, orient4):
+from assign2.srv import Cartesian
+
+def handle_cartesian_move (req):
     try:
-        rospy.init_node('jaco_cartesian_move', anonymous=True)
+        #rospy.init_node('jaco_cartesian_move')
 
 	client = actionlib.SimpleActionClient('/jaco_arm_driver/arm_pose/arm_pose', jaco_msgs.msg.ArmPoseAction)
     	client.wait_for_server()
@@ -21,9 +23,9 @@ def main (pos1, pos2, pos3, orient1, orient2, orient3, orient4):
     	goal = jaco_msgs.msg.ArmPoseGoal()
     	goal.pose.header = std_msgs.msg.Header(frame_id=('jaco_api_origin'))
     	goal.pose.pose.position = geometry_msgs.msg.Point(
-        	float(pos1), float(pos2), float(pos3))
+        	req.pos1, req.pos2, req.pos3)
     	goal.pose.pose.orientation = geometry_msgs.msg.Quaternion(
-        	float(orient1), float(orient2), float(orient3), float(orient4))
+        	req.orient1, req.orient2, req.orient3, req.orient4)
 
     	client.send_goal(goal)
 
@@ -34,5 +36,13 @@ def main (pos1, pos2, pos3, orient1, orient2, orient3, orient4):
     except rospy.ROSInterruptException:
         print "program interrupted before completion"
 
+def cartesian_move_server():
+	rospy.init_node('jaco_cartesian_move')
+	s = rospy.Service('cartesian_move', Cartesian, handle_cartesian_move)
+	rospy.spin()
+
 if __name__ == '__main__':
-	main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
+	cartesian_move_server()
+
+#if __name__ == '__main__':
+#	main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
