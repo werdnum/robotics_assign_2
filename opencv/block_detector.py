@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
-import sys
-import rospy
 import cv2
 import numpy as np
+import os
+import rospy
+import sys
+
+
 from sensor_msgs.msg import Image
 from assign2.msg import Block
 from cv_bridge import CvBridge, CvBridgeError
@@ -34,6 +37,7 @@ HIERARCHY_PARENT = 3
 
 class block_detector:
     def __init__(self, filename=None):
+        self.initKNN()
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber( 'image', Image, self.imageCallback, queue_size=1 )
         self.image_pub = rospy.Publisher( 'annotated_image', Image, queue_size=1 )
@@ -43,7 +47,8 @@ class block_detector:
     def initKNN(self):
         print "Initialising letter classifier"
         self.kNN = cv2.KNearest()
-        with np.load('knn.npz') as data:
+        scriptdir = os.path.dirname(os.path.realpath(__file__))
+        with np.load(scriptdir+'/knn.npz') as data:
             self.kNN.train(data['images'], data['letters'])
         print "Initialised letter classifier."
 
@@ -156,8 +161,9 @@ class block_detector:
     def getBlockLetter(self, blockImage):
         blockImage = cv2.cvtColor(blockImage, cv2.COLOR_BGR2GRAY)
         row = np.reshape(blockImage, -1)
-        ret,result,neighbours,dist = self.kNN.find_nearest(testImages,k=3)
-        return chr(result[0])
+        rows = np.array([row], np.float32)
+        ret,result,neighbours,dist = self.kNN.find_nearest(rows,k=3)
+        return chr(result[0][0])
 
     def getApproxSquare( self, contour ):
         rect = cv2.minAreaRect(contour)
