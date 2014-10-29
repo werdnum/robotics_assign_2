@@ -14,7 +14,6 @@ def vision_callback(data):
 
 class BlockSpeller(object):
     def __init__(self):
-        self.tokens = tokens
         rospy.init_node('block_speller', anonymous=True)
         rospy.Subscriber('blocks', Block, vision_callback)
 	rospy.wait_for_service('pickup_block')
@@ -50,10 +49,11 @@ class BlockSpeller(object):
         print "Spelling completed for", word
 
 def pickup_block_client():
+    global letter_to_position
     block_speller = BlockSpeller()
     while True:
         print letter_to_position
-        word_to_spell = input('Please Enter A Word To Spell:')
+        word_to_spell = raw_input('Please Enter A Word To Spell:')
         print letter_to_position
         block_speller.spell_word(word_to_spell)
         print "Please reset the blocks"
@@ -61,4 +61,5 @@ def pickup_block_client():
 
 
 if __name__ == '__main__':
+    letter_to_position = {}
     pickup_block_client()
