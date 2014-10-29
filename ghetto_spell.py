@@ -9,7 +9,7 @@ def pickup_block_client():
 	rospy.wait_for_service('pickup_block')
 	try:
 		pickup_block = rospy.ServiceProxy('pickup_block', Pickup)
-		pickup_block(0.11, 1)
+		pickup_block(0.11, 0)
 	except rospy.ServiceException, e:
         	print "Service call failed: %s"%e
 

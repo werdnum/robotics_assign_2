@@ -15,7 +15,7 @@ workingMap = {
 }
 
 blackLowerBound = np.array([0, 0, 0])
-blackUpperBound = np.array([64, 64, 64])
+blackUpperBound = np.array([180, 96, 64])
 
 ## Hierarchy array constants
 HIERARCHY_NEXT = 0
@@ -28,6 +28,7 @@ class working_extractor:
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber( 'image', Image, self.imageCallback, queue_size=1 )
         self.image_pub = rospy.Publisher( 'working_area', Image, queue_size=1 )
+	self.image_debug_pub = rospy.Publisher( 'working_area_debug', Image, queue_size=1 )
         self.working_area = {colour: None for colour in workingMap.keys()}
         self.real_colours = {colour: None for colour in workingMap.keys()}
         self.colour_real_contours = {colour: None for colour in workingMap.keys()}
@@ -39,28 +40,38 @@ class working_extractor:
         except CvBridgeError, e:
             print e
 
+	print "Got image"
+
         ## Find corners
         boundingBox = self.getWorkingArea(cv_image)
+	debug_image = cv_image.copy()
 
         if not (None in boundingBox.values()):
             ordering = ['blue', 'red', 'yellow', 'green']
             transformPoints = [boundingBox[colour] for colour in ordering]
             transformPoints = np.array(transformPoints, np.float32)
-            # for i in range(0,3):
-            #     cv2.line(cv_image, (transformPoints[i][0], transformPoints[i][1]), \
-            #         (transformPoints[i+1][0], transformPoints[i+1][1]), (255,255,0), 2)
+            for i in range(0,3):
+                cv2.line(debug_image, (transformPoints[i][0], transformPoints[i][1]), \
+                    (transformPoints[i+1][0], transformPoints[i+1][1]), (255,255,0), 2)
             cv_image = self.extractPoints(cv_image, transformPoints, 1000, 600)
         
-        # for colour, pos in boundingBox.iteritems():
-        #     cv2.circle(cv_image, pos, 20, self.real_colours[colour], -1)
+        for colour, pos in boundingBox.iteritems():
+            cv2.circle(debug_image, pos, 20, self.real_colours[colour], -1)
 
-        resultImage = self.bridge.cv2_to_imgmsg( cv_image, encoding="bgr8" )
+	debugImage = self.bridge.cv2_to_imgmsg(debug_image, encoding="passthrough")
+        self.image_debug_pub.publish(debugImage)
 
-        self.image_pub.publish( resultImage )
+        resultImage = self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
+        self.image_pub.publish(resultImage)
 
     def getWorkingArea(self, image): # Image in BGR
         # Find black boxes
-        blackMaskedImage = cv2.inRange(image, blackLowerBound, blackUpperBound)
+	hsvImage = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        blackMaskedImage = cv2.inRange(hsvImage, blackLowerBound, blackUpperBound)
+
+	# debugImage = self.bridge.cv2_to_imgmsg(blackMaskedImage, encoding="passthrough")
+        # self.image_debug_pub.publish(debugImage)
+
         blackContours, hierarchy = cv2.findContours(blackMaskedImage, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # Set up mask for finding colour of a box
@@ -69,7 +80,7 @@ class working_extractor:
 
         # Use the last stored working area as a starting point,
         # so if the detection is flaky then we have a starting point
-        output = self.working_area
+        output = {colour: None for colour in workingMap.keys()}
         biggest_box = {colour: 0 for colour in workingMap.keys()}
         for index in range(0, len(blackContours)):
             actualContour = blackContours[index]
@@ -87,6 +98,7 @@ class working_extractor:
 
                 squareImage = self.extractBlock(image, approx, 40)
                 colour = cv2.mean(squareImage, mask=centerMask)
+		print "Found black box at ", center[0], ", ", center[1], " with colour ", colour
                 colourName = self.classifyColour(colour)
 
                 if colourName != None and actualArea > biggest_box[colourName]:
