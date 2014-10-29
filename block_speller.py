@@ -4,18 +4,19 @@ import os
 import rospy
 #import pickup_block
 from assign2.srv import Pickup
-from std_msgs.msg import String
+from assign2.msg import Block
 
 letter_to_position = {}
 
 def vision_callback(data):
-    return
+    if not data.letter in letter_to_position:
+        letter_to_position[data.letter] = data.posX
 
 class BlockSpeller(object):
     def __init__(self):
         self.tokens = tokens
         rospy.init_node('block_speller', anonymous=True)
-        rospy.Subscriber('blocks', String, vision_callback)
+        rospy.Subscriber('blocks', Block, vision_callback)
 	rospy.wait_for_service('pickup_block')
 
     def spell_word(self, word):
@@ -29,7 +30,7 @@ class BlockSpeller(object):
         # Ensure everything is in the dictionary
         if len(tokens) != len([t for t in tokens if t in letter_to_position]):
             print "Sorry I couldn't find the following blocks:"
-            print '*', ','.join([t for t in tokens if t not in letter_to_position])
+            print '*', ','.join([t for t in tokens if not t in letter_to_position])
             return
 
         # Translate to token positions
@@ -51,7 +52,9 @@ class BlockSpeller(object):
 def pickup_block_client():
     block_speller = BlockSpeller()
     while True:
+        print letter_to_position
         word_to_spell = input('Please Enter A Word To Spell:')
+        print letter_to_position
         block_speller.spell_word(word_to_spell)
         print "Please reset the blocks"
         letter_to_position = {}
