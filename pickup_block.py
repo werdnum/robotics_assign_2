@@ -10,6 +10,7 @@ import os
 from assign2.srv import Pickup, Finger, Cartesian
 
 def handle_pickup_block(req):
+	print "Received request to move block from ", req.pos1, " to ", req.pos2
 	#rospy.init_node('jaco_pickup_block')
 	#xpos_pick = 0.26 - int(pos1) * 0.047
 	# For pos1 as percentage of distance along top

@@ -1,0 +1,7 @@
+<launch>
+    <include file="$(find jaco_driver)/launch/arm.launch" />
+    <node name="finger_move" pkg="assign2" type="finger_move.py" />
+    <node name="cartesian_move" pkg="assign2" type="cartesian_move.py" />
+    <node name="pickup_block" pkg="assign2" type="pickup_block.py" />
+</launch>
+

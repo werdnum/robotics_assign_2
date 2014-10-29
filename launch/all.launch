@@ -1,0 +1,4 @@
+<launch>
+    <include file="$(find assign2)/launch/vision.launch" />
+    <include file="$(find assign2)/launch/arm.launch" />
+</launch>

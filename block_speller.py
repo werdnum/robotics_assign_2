@@ -6,10 +6,13 @@ import rospy
 from assign2.srv import Pickup
 from assign2.msg import Block
 
+letters = map(chr, range(97, 123))
+colors = ['green', 'blue', 'orange', 'purple', 'yellow', 'red']
+letters_to_colors = dict(zip(letters, colors*20))
 letter_to_position = {}
 
 def vision_callback(data):
-    if not data.letter in letter_to_position:
+    if not data.letter in letter_to_position and data.colour == letters_to_colors[data.letter]:
         letter_to_position[data.letter] = data.posX
 
 class BlockSpeller(object):
@@ -37,6 +40,7 @@ class BlockSpeller(object):
     
         place = 0
         for t,x in token_positions:
+            x = x + 0.05 * (0.5 - x)
             print "* Picking Up", t, "at", x
             try:
                 pickup_block = rospy.ServiceProxy('pickup_block', Pickup)
@@ -44,7 +48,6 @@ class BlockSpeller(object):
             except rospy.ServiceException, e:
                 print "Arm service call failed: %s" % e
                 return
-
             place += 1
         print "Spelling completed for", word
 
@@ -54,10 +57,8 @@ def pickup_block_client():
     while True:
         print letter_to_position
         word_to_spell = raw_input('Please Enter A Word To Spell:')
-        print letter_to_position
         block_speller.spell_word(word_to_spell)
         print "Please reset the blocks"
-        letter_to_position = {}
 
 
 if __name__ == '__main__':
